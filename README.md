@@ -2,8 +2,6 @@
 
 A web app that allows you to quickly test [Auth0 Redirect Actions](https://auth0.com/docs/customize/actions/flows-and-triggers/login-flow/redirect-with-actions) without hosting an external page.
 
-
-
 ## Usage
 
 Set a redirect url to `https://redirect-action-tester.yusasaki0.app` in your action.
@@ -59,3 +57,7 @@ exports.onContinuePostLogin = async (event, api) => {
   api.user.setAppMetadata("key_agreed", isKycAgreed)
 };
 ```
+
+## Sample
+
+https://redirect-action-tester.yusasaki0.app/?session_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE2NjM4MTc1MzUsImlzcyI6Inl1c2FzYWtpLmpwLmF1dGgwLmNvbSIsInN1YiI6ImF1dGgwfDYzMTAzOGVjNDkzNzJiZTczMmI3ODEzMCIsImV4cCI6MTY2MzgxNzU5NSwiaXAiOiIyNDBkOjFlOjhjOmI2MDA6OTUwNTpmMTg5OjE4NzA6NDUzOCIsInVzZXJfbmFtZSI6Inl1c2FzYWtpIn0.WyaVa3VnmS9hFWfte7Mh8PWTa4Xd1HOIL2dBIz1BOoc&debug=%257B%2522token_key%2522%253A%2522session_token%2522%252C%2522secret%2522%253A%2522my_secret_password%2522%257D&state=hKFo2SAxM0k5ejNtMUVNbThwNUFiUGtRdVFnRmxZcnQ4bFAtcKFuqHJlZGlyZWN0o3RpZNkgWUlOQlR3QWZtRmtvMVJOeHkyZXB0S0JPOXN1UXhQUmSjY2lk2SBpc1dybEV1UmU0VnUxcWh3OWc4bmtUT3BjZld6eGhMOA#
