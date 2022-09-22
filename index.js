@@ -5,6 +5,7 @@
  */
 
 var express = require('express');
+const jwt = require("jsonwebtoken");
 const bodyParser = require('body-parser');
 var path = require('path');
 
@@ -37,28 +38,134 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ex: res.render('users.html').
 app.set('view engine', 'html');
 
-app.get('/:token_query_key', function (req, res) {
-  const state = req.query.state;
-  const token = req.query[req.params.token_query_key];
-  const origin = req.get('origin')
+
+const verifyDebugParam = (debugRaw) => {
+
+  const debug = JSON.parse(decodeURIComponent(debugRaw));
+
+  if (!debug) {
+    throw Error("debug parameter is not passed");
+  }
+
+  if (!debug.token_key) {
+    throw Error("debug.token_key parameter does not exist");
+  }
+
+  return debug
+}
+
+const onExecutePostLoginCode = `
+exports.onExecutePostLogin = async (event, api) => {
+
+  const token = api.redirect.encodeToken({
+    expiresInSeconds: 60,
+    secret: "my_secret_password",
+    payload: {
+      externalId: "abc-100"
+    },
+  });
+
+  const debug = encodeURIComponent(JSON.stringify({
+    token_key: "session_token",
+    secret: "my_secret_password"
+  }));
+
+  api.redirect.sendUserTo("https://redirect-action-tester.yusasaki0.app", {
+    query: {
+      session_token: token,
+      debug
+    }
+  });
+};
+
+`;
+
+const onContinuePostLoginCode = `
+exports.onContinuePostLogin = async (event, api) => {
+
+  const token = api.redirect.validateToken({
+    secret: "my_secret_password",
+    tokenParameterName: 'session_token'
+  });
+
+  if (event.user.user_id !== token.sub) {
+    api.access.deny("The user who initiated the login process does not match with the one who resumed it.");
+    return;
+  }
+
+  const isKycAgreed = token.isKycAgreed;
+  if (!isKycAgreed) {
+    api.access.deny("You must agree with the KYC.");
+    return;
+  }
+
+  api.user.setAppMetadata("key_agreed", isKycAgreed)
+};
+`
+
+
+const generateContinueUrl = (state, data, secret, domain, token_key) => {
+  state = decodeURIComponent(state)
+  secret = decodeURIComponent(secret)
+  data = JSON.parse(decodeURIComponent(data)) 
+  token_key = decodeURIComponent(token_key)
+  const signedToken = jwt.sign(
+    {
+      state,
+      ...data
+    },
+    secret,
+    { algorithm: "HS256" }
+  );
+  const url = `https://${domain}/continue?state=${state}&${token_key}=${signedToken}`
+  return url
+}
+
+app.get('/', function (req, res) {
+  let error, token, state = req.query.state, domain, debug, data, newData = {}, secret = "My secret password", token_key, continue_url;
+  try {
+    debug = verifyDebugParam(req.query.debug);
+    if (debug.token_key) {
+      token = req.query[debug.token_key]
+    }
+    secret = debug.secret || secret
+    data = jwt.decode(token)
+    token_key = debug.token_key
+    domain = data.iss;
+    continue_url = generateContinueUrl(state, JSON.stringify(newData), secret, domain, token_key)
+  } catch (e) {
+    error = e
+  }
+
   res.render('redirected', {
+    error,
     token,
     state,
-    origin,
-    title: "Auth0 Redirect Action Tester"
+    secret,
+    domain,
+    token_key,
+    debug: JSON.stringify(debug, null, 4),
+    data: JSON.stringify(data, null, 4),
+    newData: JSON.stringify(newData, null, 4),
+    continue_url,
+    onExecutePostLoginCode,
+    onContinuePostLoginCode
   });
+
+});
+
+app.get("/continue-url", function (req, res) {
+  const { state, domain, newData, secret, token_key } = req.query;
+  console.log(req.query)
+  const url = generateContinueUrl(state, newData, secret, domain, token_key)
+  res.json({
+    url
+  })
 });
 
 app.post('/submit', function (req, res) {
-
-  const state = req.query.state;
-  const domain = req.body.domain;
-  const token_key = req.body.token_key;
-  const data = req.body.data;
-  const token = data;
-
-  const url = `https://${domain}/continue?state=${state}&${token_key}=${token}`
-
+  let { state, domain, newData, secret, token_key } = req.body;
+  const url = generateContinueUrl(state, newData, secret, domain, token_key)
   res.redirect(url)
 });
 
