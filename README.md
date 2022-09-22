@@ -4,7 +4,10 @@ A web app that allows you to quickly test [Auth0 Redirect Actions](https://auth0
 
 ## Usage
 
-Set a redirect url to `https://redirect-action-tester.yusasaki0.app` in your action.
+- Set a redirect url to `https://redirect-action-tester.yusasaki0.app` in your action.
+- Provide a `debug` object with token_key and secret so that the debugger can extract the info.
+  - `token_key`: The key of the token query parameter.
+  - `secret`: The secret used to sign the payload.
 
 ### onExecutePostLogin
 
