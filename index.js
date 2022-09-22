@@ -54,56 +54,6 @@ const verifyDebugParam = (debugRaw) => {
   return debug
 }
 
-const onExecutePostLoginCode = `
-exports.onExecutePostLogin = async (event, api) => {
-
-  const token = api.redirect.encodeToken({
-    expiresInSeconds: 60,
-    secret: "my_secret_password",
-    payload: {
-      externalId: "abc-100"
-    },
-  });
-
-  const debug = encodeURIComponent(JSON.stringify({
-    token_key: "session_token",
-    secret: "my_secret_password"
-  }));
-
-  api.redirect.sendUserTo("https://redirect-action-tester.yusasaki0.app", {
-    query: {
-      session_token: token,
-      debug
-    }
-  });
-};
-
-`;
-
-const onContinuePostLoginCode = `
-exports.onContinuePostLogin = async (event, api) => {
-
-  const token = api.redirect.validateToken({
-    secret: "my_secret_password",
-    tokenParameterName: 'session_token'
-  });
-
-  if (event.user.user_id !== token.sub) {
-    api.access.deny("The user who initiated the login process does not match with the one who resumed it.");
-    return;
-  }
-
-  const isKycAgreed = token.isKycAgreed;
-  if (!isKycAgreed) {
-    api.access.deny("You must agree with the KYC.");
-    return;
-  }
-
-  api.user.setAppMetadata("key_agreed", isKycAgreed)
-};
-`
-
-
 const generateContinueUrl = (iss, sub, exp, state, newData, secret, domain, token_key) => {
   sub = decodeURIComponent(sub)
   exp = parseInt(decodeURIComponent(exp))
@@ -165,8 +115,6 @@ app.get('/', function (req, res) {
     data: JSON.stringify(data, null, 4),
     newData: JSON.stringify(newData, null, 4),
     continue_url,
-    onExecutePostLoginCode,
-    onContinuePostLoginCode
   });
 
 });
