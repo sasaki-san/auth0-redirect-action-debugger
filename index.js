@@ -104,15 +104,21 @@ exports.onContinuePostLogin = async (event, api) => {
 `
 
 
-const generateContinueUrl = (state, data, secret, domain, token_key) => {
+const generateContinueUrl = (iss, sub, exp, state, newData, secret, domain, token_key) => {
+  sub = decodeURIComponent(sub)
+  exp = parseInt(decodeURIComponent(exp))
+  state = decodeURIComponent(state)
   state = decodeURIComponent(state)
   secret = decodeURIComponent(secret)
-  data = JSON.parse(decodeURIComponent(data)) 
+  newData = JSON.parse(decodeURIComponent(newData))
   token_key = decodeURIComponent(token_key)
   const signedToken = jwt.sign(
     {
+      iss,
+      sub,
+      exp,
       state,
-      ...data
+      ...newData
     },
     secret,
     { algorithm: "HS256" }
@@ -122,7 +128,7 @@ const generateContinueUrl = (state, data, secret, domain, token_key) => {
 }
 
 app.get('/', function (req, res) {
-  let error, token, state = req.query.state, domain, debug, data, newData = {}, secret = "My secret password", token_key, continue_url;
+  let error, token, iss, sub, exp, state = req.query.state, domain, debug, data, newData = {}, secret = "My secret password", token_key, continue_url;
   try {
     debug = verifyDebugParam(req.query.debug);
     if (debug.token_key) {
@@ -132,7 +138,15 @@ app.get('/', function (req, res) {
     data = jwt.decode(token)
     token_key = debug.token_key
     domain = data.iss;
-    continue_url = generateContinueUrl(state, JSON.stringify(newData), secret, domain, token_key)
+    iss = data.iss;
+    sub =encodeURIComponent(data.sub);
+    exp = data.exp;
+    continue_url = generateContinueUrl(data.iss, data.sub, data.exp, state, JSON.stringify(newData), secret, domain, token_key)
+  } catch (e) {
+    error = e
+  }
+
+  try {
   } catch (e) {
     error = e
   }
@@ -140,6 +154,9 @@ app.get('/', function (req, res) {
   res.render('redirected', {
     error,
     token,
+    iss,
+    sub,
+    exp,
     state,
     secret,
     domain,
@@ -155,18 +172,16 @@ app.get('/', function (req, res) {
 });
 
 app.get("/continue-url", function (req, res) {
-  const { state, domain, newData, secret, token_key } = req.query;
-  console.log(req.query)
-  const url = generateContinueUrl(state, newData, secret, domain, token_key)
+  const { iss, sub, exp, state, domain, newData, secret, token_key } = req.query;
+  const url = generateContinueUrl(iss, sub, exp, state, newData, secret, domain, token_key)
   res.json({
     url
   })
 });
 
 app.post('/submit', function (req, res) {
-  let { state, domain, newData, secret, token_key } = req.body;
-  const url = generateContinueUrl(state, newData, secret, domain, token_key)
-  res.redirect(url)
+  let { continue_url } = req.body;
+  res.redirect(continue_url)
 });
 
 /* istanbul ignore next */

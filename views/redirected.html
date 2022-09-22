@@ -2,6 +2,9 @@
 
   <section class="debugger-jwt" id="debugger-io">
     <form action="/submit?state=<%= state %>" method="post" id="form1">
+      <input type="hidden" name="iss" id="iss" value="<%=iss %>" />
+      <input type="hidden" name="sub" id="sub" value="<%=sub %>" />
+      <input type="hidden" name="exp" id="exp" value="<%=exp %>" />
       <div class="container">
         <h1>Auth0 Redirect Action Debugger</h1>
 
@@ -332,9 +335,11 @@
                                   </div>
 
                                   <div class="CodeMirror-code" role="presentation">
+                                    <input type="hidden" id="continue_url" name="continue_url"
+                                      value="<%=continue_url %>" />
                                     <!-- Code starts here -->
                                     <pre class=" CodeMirror-line " role="presentation"
-                                      style="padding-right: 0.1px;"><span role="presentation" id="continue-url" ><%=continue_url %></span></pre>
+                                      style="padding-right: 0.1px;"><span role="presentation" id="continue_url_code" ><%=continue_url %></span></pre>
                                     <!-- Code ends here -->
                                   </div>
                                 </div>
@@ -480,16 +485,20 @@
     }
 
     function updateContinueUrl() {
-      let state, domain, newData, secret, token_key;
+      let iss, sub, exp, state, domain, newData, secret, token_key;
+      iss = document.getElementById("iss").value
+      sub = encodeURIComponent(document.getElementById("sub").value)
+      exp = encodeURIComponent(document.getElementById("exp").value)
       state = encodeURIComponent(document.getElementById("state").value)
-      domain = encodeURIComponent(document.getElementById("domain").value)
+      domain = document.getElementById("domain").value
       newData = encodeURIComponent(document.getElementById("newData").value)
       secret = encodeURIComponent(document.getElementById("secret").value)
       token_key = encodeURIComponent(document.getElementById("token_key").value)
-      const apiUrl = `/continue-url?state=${state}&domain=${domain}&newData=${newData}&secret=${secret}&token_key=${token_key}`
+      const apiUrl = `/continue-url?iss=${iss}&sub=${sub}&exp=${exp}&state=${state}&domain=${domain}&newData=${newData}&secret=${secret}&token_key=${token_key}`
       try {
-        const continueUrl = httpGet(apiUrl)
-        document.getElementById("continue-url").textContent = JSON.parse(continueUrl).url
+        const continueUrl = JSON.parse(httpGet(apiUrl)).url
+        document.getElementById("continue_url_code").textContent =
+          document.getElementById("continue_url").value = continueUrl
       } catch (e) {
         document.getElementById("continue-url").textContent = e
       }
