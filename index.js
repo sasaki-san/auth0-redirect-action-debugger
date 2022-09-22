@@ -68,7 +68,6 @@ const generateContinueUrl = (iss, sub, exp, state, newData, secret, domain, toke
 
   const signedToken = jwt.sign(
     {
-      iss,
       sub,
       exp,
       state,
