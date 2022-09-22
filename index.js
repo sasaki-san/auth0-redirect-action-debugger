@@ -62,6 +62,10 @@ const generateContinueUrl = (iss, sub, exp, state, newData, secret, domain, toke
   secret = decodeURIComponent(secret)
   newData = JSON.parse(decodeURIComponent(newData))
   token_key = decodeURIComponent(token_key)
+
+  // set expiration to 60 seconds
+  exp = Math.floor(Date.now()/1000) + 60
+
   const signedToken = jwt.sign(
     {
       iss,
