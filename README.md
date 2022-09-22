@@ -22,15 +22,9 @@ exports.onExecutePostLogin = async (event, api) => {
     },
   });
 
-  const debug = encodeURIComponent(JSON.stringify({
-    token_key: "session_token",
-    secret: "my_secret_password"
-  }));
-
   api.redirect.sendUserTo("https://redirect-action-tester.yusasaki0.app", {
     query: {
-      session_token: token,
-      debug
+      session_token: token
     }
   });
 };
