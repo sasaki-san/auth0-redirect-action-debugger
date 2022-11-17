@@ -258,7 +258,7 @@ function App() {
               textDecoration: 'none',
             }}
           >
-            Auth0 Redirect Action Debugger
+            Auth0 Redirect Action Tester 
           </Typography>
         </Toolbar>
       </AppBar>

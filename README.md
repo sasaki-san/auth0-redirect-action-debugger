@@ -9,7 +9,7 @@ A web app that allows you to quickly test [Auth0 Redirect Actions](https://auth0
   - `secret`: The secret you use to sign the token.
 - In your action, redirect to `https://redirect-action-tester.yusasaki0.app`
 
-### onExecutePostLogin
+## Sample Code
 
 ```javascript
 exports.onExecutePostLogin = async (event, api) => {
