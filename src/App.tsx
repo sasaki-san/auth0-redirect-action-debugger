@@ -20,6 +20,8 @@ import { decodeToken } from "react-jwt"
 import { KJUR } from "jsrsasign"
 import { Auth0Provider } from "@auth0/auth0-react";
 import Profile from './comoponents/Profile';
+import { green, purple } from '@mui/material/colors';
+
 
 interface Props {
   /**
@@ -37,7 +39,10 @@ const Item = styled(Paper)(({ theme }) => ({
 }));
 const darkTheme = createTheme({
   palette: {
-    mode: 'dark',
+    mode: "dark"
+  },
+  typography: {
+    fontFamily: 'fakt-web,"Helvetica Neue",Helvetica,Arial,sans-serif',
   },
 });
 
@@ -85,6 +90,9 @@ interface JwtStandardClaims {
 interface Jwt extends JwtStandardClaims {
   [key: string]: any
 }
+
+export type SendDataFormat = 'none' | 'jwt' | 'form'
+
 export interface RedirectState {
   tokenKey: string
   tokenSecret: string
@@ -93,9 +101,11 @@ export interface RedirectState {
   tokenSecretError: boolean
 }
 export interface ContinueState {
-  sendData: boolean
+  dataFormat: SendDataFormat
   rawData: string
   rawDataError: boolean
+  rawJwt: string
+  rawJwtError: boolean
   data?: Jwt
   signingKey: string
   tokenParamKey: string
@@ -155,6 +165,16 @@ function App() {
     return value
   }
 
+  const getFormData = (rawData: string) => {
+    try {
+      const lines = rawData.split("\n")
+      if (lines.length === 0) {
+        return
+      }
+    } catch { }
+    return rawData
+  }
+
   const getSignedDataToken = (data: Jwt | undefined, signingKey: string | undefined) => {
     let value: string = ""
     if (data && signingKey) {
@@ -184,8 +204,11 @@ function App() {
   })
 
   const [continueState, setContinueState] = React.useState<ContinueState>({
-    sendData: true,
-    rawData: getInitialRawData(redirectState.token),
+    dataFormat: 'jwt',
+    rawJwt: getInitialRawData(redirectState.token),
+    rawJwtError: false,
+    rawData: `FIRST_NAME=John
+FAMILY_NAME=Smith`,
     rawDataError: false,
     data: undefined,
     signingKey: "my_secret_password",
@@ -209,19 +232,23 @@ function App() {
     })
   }
 
-  const handleContinueInputUpdated = (sendData: boolean, rawData: string, signingKey: string, tokenParamKey: string) => {
+  const handleContinueInputUpdated = (dataFormat: SendDataFormat, rawJwt: string, rawData: string, signingKey: string, tokenParamKey: string) => {
 
-    const data = sendData ? getDataToken(rawData) : undefined
-    const rawDataError = sendData && !data
-    const sToken = getSignedDataToken(data, signingKey)
+    const jwt = dataFormat === "jwt" ? getDataToken(rawJwt) : undefined
+    const data = dataFormat === "form" ? getFormData(rawData) : undefined
+    const rawDataError = !data
+    const rawJwtError = (dataFormat !== "none") && !jwt
+    const sToken = getSignedDataToken(jwt, signingKey)
     const continueUrl = getContinueUrl(tokenParamKey, sToken)
 
     setContinueState({
       ...continueState,
-      sendData,
-      rawData,
+      dataFormat,
+      rawJwt,
+      rawJwtError,
       rawDataError,
-      data,
+      rawData,
+      data: jwt,
       signingKey,
       tokenParamKey,
       sToken,
@@ -230,7 +257,7 @@ function App() {
   }
 
   useEffect(() => {
-    handleContinueInputUpdated(continueState.sendData, continueState.rawData, continueState.signingKey, continueState.tokenParamKey)
+    handleContinueInputUpdated(continueState.dataFormat, continueState.rawJwt, continueState.rawData, continueState.signingKey, continueState.tokenParamKey)
   }, [redirectState])
 
   // const providerConfig = {
@@ -251,14 +278,12 @@ function App() {
             href="/"
             sx={{
               mr: 2,
-              display: { xs: 'flex', md: 'flex' },
-              fontFamily: 'monospace',
               fontWeight: 700,
               color: 'inherit',
               textDecoration: 'none',
             }}
           >
-            Auth0 Redirect Action Tester 
+            Auth0 Redirect Action Tester
           </Typography>
         </Toolbar>
       </AppBar>
