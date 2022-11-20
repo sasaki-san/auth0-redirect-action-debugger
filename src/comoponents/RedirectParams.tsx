@@ -13,6 +13,7 @@ import Select, { SelectChangeEvent } from '@mui/material/Select';
 
 import Alert from '@mui/material/Alert';
 import { RedirectState } from '../App';
+import CodeTextField from './CodeTextField';
 
 interface Props extends RedirectState {
   state: string | null
@@ -40,7 +41,7 @@ export default function RedirectParams(props: Props) {
   return (
     <Box sx={{ width: '100%' }}>
       <Stack spacing={2}>
-        <Typography variant="h4" color="text.secondary" gutterBottom>
+        <Typography variant="h4" color="text.secondary" >
           Redirect Parameters
         </Typography>
         <Code title="State" value={state !== null ? state : "INVALID STATE"} />
@@ -57,7 +58,7 @@ export default function RedirectParams(props: Props) {
           </Select>
         </FormControl>
         <CodeAsJson title="Token" value={token ? JSON.stringify(token, null, 2) : "Error"} />
-        <TextField id="tokenSecret" label="Secret" variant="outlined" value={tokenSecret} onChange={handleTokenSecretChange} fullWidth />
+        <CodeTextField id="tokenSecret" label="Secret" variant="outlined" value={tokenSecret} onChange={handleTokenSecretChange} fullWidth />
         {
           tokenSecretError ? <Alert severity="error">INVALID SECRET</Alert> : <Alert severity="success">SECRET IS VALID</Alert>
         }

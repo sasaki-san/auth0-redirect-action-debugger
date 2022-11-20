@@ -1,7 +1,7 @@
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
-import TextField from '@mui/material/TextField';
+import CodeTextField from './CodeTextField';
 
 interface Props {
   title: string
@@ -13,7 +13,7 @@ interface Props {
 
 const EditableCard = (props: Props) => {
   return (
-    <TextField
+    <CodeTextField
       id="outlined-multiline-flexible"
       fullWidth
       multiline
@@ -37,6 +37,7 @@ const NonEditableCard = (props: Props) => {
         <pre>
           <Typography
             style={{ wordWrap: "break-word" }}
+            fontFamily='"Roboto Mono"'
           >
             {props.value}
           </Typography>

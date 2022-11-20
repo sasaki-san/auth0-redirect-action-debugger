@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import './App.css';
 import CssBaseline from '@mui/material/CssBaseline';
-import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { styled } from '@mui/material/styles';
@@ -10,81 +9,42 @@ import Grid from '@mui/material/Unstable_Grid2';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
-import useScrollTrigger from '@mui/material/useScrollTrigger';
 import Fab from '@mui/material/Fab';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import Fade from '@mui/material/Fade';
 import RedirectParams from './comoponents/RedirectParams';
 import ContinueParams from './comoponents/ContinueParams';
 import { decodeToken } from "react-jwt"
 import { KJUR } from "jsrsasign"
-import { Auth0Provider } from "@auth0/auth0-react";
-import Profile from './comoponents/Profile';
-
-interface Props {
-  /**
-   * Injected by the documentation to work in an iframe.
-   * You won't need it on your project.
-   */
-  window?: () => Window;
-  children: React.ReactElement;
-}
+import ScrollTop from './comoponents/ScrollTop';
+import ProfileParams from './comoponents/ProfileParams';
 
 const Item = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(1),
   color: theme.palette.text.secondary,
   boxShadow: "none",
 }));
+
 const darkTheme = createTheme({
   palette: {
-    mode: 'dark',
+    mode: "dark"
+  },
+  typography: {
+    fontFamily: 'fakt-web,"Helvetica Neue",Helvetica,Arial,sans-serif',
   },
 });
-
-function ScrollTop(props: Props) {
-  const { children } = props;
-  // Note that you normally won't need to set the window ref as useScrollTrigger
-  // will default to window.
-  // This is only being set here because the demo is in an iframe.
-  const trigger = useScrollTrigger({
-    target: undefined,
-    disableHysteresis: true,
-    threshold: 100,
-  });
-
-  const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    const anchor = (
-      (event.target as HTMLDivElement).ownerDocument || document
-    ).querySelector('#back-to-top-anchor');
-
-    if (anchor) {
-      anchor.scrollIntoView({
-        block: 'center',
-      });
-    }
-  };
-
-  return (
-    <Fade in={trigger}>
-      <Box
-        onClick={handleClick}
-        role="presentation"
-        sx={{ position: 'fixed', bottom: 16, right: 16 }}
-      >
-        {children}
-      </Box>
-    </Fade>
-  );
-}
 
 interface JwtStandardClaims {
   sub: string
   iat: number
   exp: number
+  iss: string
 }
 interface Jwt extends JwtStandardClaims {
   [key: string]: any
 }
+
+export type SendDataFormat = 'none' | 'jwt' | 'form'
+
 export interface RedirectState {
   tokenKey: string
   tokenSecret: string
@@ -93,14 +53,21 @@ export interface RedirectState {
   tokenSecretError: boolean
 }
 export interface ContinueState {
-  sendData: boolean
+  dataFormat: SendDataFormat
   rawData: string
   rawDataError: boolean
+  rawJwt: string
+  rawJwtError: boolean
   data?: Jwt
   signingKey: string
   tokenParamKey: string
   sToken: string
   continueUrl: string,
+}
+export interface ProfileState {
+  clientId: string
+  domain: string
+  redirectUri: string
 }
 
 function App() {
@@ -143,7 +110,7 @@ function App() {
       iat: Math.floor(Date.now() / 1000),
       exp: Math.floor(Date.now() / 1000) + 60 * 60,
       state
-    } as Jwt
+    } as Pick<Jwt, "sub" | "iat" | "exp">
     return JSON.stringify(value, null, 4)
   }
 
@@ -153,6 +120,16 @@ function App() {
       value = JSON.parse(rawData)
     } catch { }
     return value
+  }
+
+  const getFormData = (rawData: string) => {
+    try {
+      const lines = rawData.split("\n")
+      if (lines.length === 0) {
+        return
+      }
+    } catch { }
+    return rawData
   }
 
   const getSignedDataToken = (data: Jwt | undefined, signingKey: string | undefined) => {
@@ -168,7 +145,7 @@ function App() {
   }
 
   const getContinueUrl = (tokenParamKey: string, sToken: string) => {
-    const continueUrlHost = redirectState && redirectState.token && (redirectState.token as any).iss ? (redirectState.token as any).iss : "INVALID_ISS_IN_TOKEN"
+    const continueUrlHost = redirectState.token && redirectState.token.iss ? redirectState.token.iss : "INVALID_ISS_IN_TOKEN"
     const tokenParamQueryPart = sToken ? `&${tokenParamKey}=${sToken}` : ""
     const value = `https://${continueUrlHost}/continue?state=${state}${tokenParamQueryPart}`
     return value
@@ -184,14 +161,23 @@ function App() {
   })
 
   const [continueState, setContinueState] = React.useState<ContinueState>({
-    sendData: true,
-    rawData: getInitialRawData(redirectState.token),
+    dataFormat: 'jwt',
+    rawJwt: getInitialRawData(redirectState.token),
+    rawJwtError: false,
+    rawData: `FIRST_NAME=John
+FAMILY_NAME=Smith`,
     rawDataError: false,
     data: undefined,
     signingKey: "my_secret_password",
     tokenParamKey: "session_token",
     sToken: "",
     continueUrl: ""
+  })
+
+  const [profileState, setProfileState] = React.useState<ProfileState>({
+    clientId: "",
+    redirectUri: window.location.origin,
+    domain: ""
   })
 
   const handleRedirectInputUpdated = (tokenKey: string, tokenSecret: string) => {
@@ -209,19 +195,23 @@ function App() {
     })
   }
 
-  const handleContinueInputUpdated = (sendData: boolean, rawData: string, signingKey: string, tokenParamKey: string) => {
+  const handleContinueInputUpdated = (dataFormat: SendDataFormat, rawJwt: string, rawData: string, signingKey: string, tokenParamKey: string) => {
 
-    const data = sendData ? getDataToken(rawData) : undefined
-    const rawDataError = sendData && !data
-    const sToken = getSignedDataToken(data, signingKey)
+    const jwt = dataFormat === "jwt" ? getDataToken(rawJwt) : undefined
+    const data = dataFormat === "form" ? getFormData(rawData) : undefined
+    const rawDataError = !data
+    const rawJwtError = (dataFormat !== "none") && !jwt
+    const sToken = getSignedDataToken(jwt, signingKey)
     const continueUrl = getContinueUrl(tokenParamKey, sToken)
 
     setContinueState({
       ...continueState,
-      sendData,
-      rawData,
+      dataFormat,
+      rawJwt,
+      rawJwtError,
       rawDataError,
-      data,
+      rawData,
+      data: jwt,
       signingKey,
       tokenParamKey,
       sToken,
@@ -229,15 +219,21 @@ function App() {
     })
   }
 
-  useEffect(() => {
-    handleContinueInputUpdated(continueState.sendData, continueState.rawData, continueState.signingKey, continueState.tokenParamKey)
-  }, [redirectState])
+  const handleProfileInputUpdated = (clientId: string) => {
 
-  // const providerConfig = {
-  //   domain: "yusasaki.jp.auth0.com",
-  //   clientId: "ECVqsZoy7gm85FxudfFETO2rolbjJNz5",
-  //   redirectUri: window.location.origin
-  // };
+    const domain = redirectState.token && redirectState.token.iss ? redirectState.token.iss : "INVALID_ISS_IN_TOKEN"
+
+    setProfileState({
+      clientId,
+      redirectUri: profileState.redirectUri,
+      domain
+    })
+  }
+
+  useEffect(() => {
+    handleContinueInputUpdated(continueState.dataFormat, continueState.rawJwt, continueState.rawData, continueState.signingKey, continueState.tokenParamKey)
+    handleProfileInputUpdated(profileState.clientId)
+  }, [redirectState])
 
   return (
     <ThemeProvider theme={darkTheme}>
@@ -247,18 +243,15 @@ function App() {
           <Typography
             variant="h6"
             noWrap
-            component="a"
-            href="/"
             sx={{
               mr: 2,
-              display: { xs: 'flex', md: 'flex' },
-              fontFamily: 'monospace',
               fontWeight: 700,
               color: 'inherit',
               textDecoration: 'none',
+              flexGrow: 1
             }}
           >
-            Auth0 Redirect Action Tester 
+            Auth0 Redirect Action Tester
           </Typography>
         </Toolbar>
       </AppBar>
@@ -269,19 +262,15 @@ function App() {
             <Item>
               <RedirectParams state={state} queryParams={queryParams} onInputUpdated={handleRedirectInputUpdated} {...redirectState} ></RedirectParams>
             </Item>
+            {/* <Item>
+              <ProfileParams onInputUpdated={handleProfileInputUpdated} {...profileState} />
+            </Item> */}
           </Grid>
           <Grid xs={12} lg={6} xl={6}>
             <Item>
               <ContinueParams onInputUpdated={handleContinueInputUpdated} {...continueState}></ContinueParams>
             </Item>
           </Grid>
-          {/* <Grid xs={12} lg={12} xl={4}>
-            <Item>
-              <Auth0Provider {...providerConfig}>
-                <Profile />
-              </Auth0Provider>
-            </Item>
-          </Grid> */}
         </Grid>
       </Container>
       <ScrollTop>
