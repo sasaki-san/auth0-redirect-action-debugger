@@ -21,9 +21,9 @@ const createHiddenFieldsFromRawData = (rawData: string) => {
     <React.Fragment>
       {
         rawData.split("\n")
-          .map(line => {
+          .map((line, i) => {
             const [key, value] = line.split("=")
-            return <input type="hidden" name={key} value={value} />
+            return <input key={i} type="hidden" name={key} value={value} />
           })
       }
     </React.Fragment>
@@ -122,6 +122,9 @@ export default function ContinueParams(props: Props) {
         {
           dataFormat === "none" && (
             <React.Fragment>
+              <Typography variant="subtitle1" color="text.secondary">
+                Do not send any data
+              </Typography>
               <Code title="Continue URL" value={!rawJwtError ? continueUrl : "Invalid Parameters"} />
               <Button variant="contained" fullWidth onClick={handleContinueClick}>Continue</Button>
             </React.Fragment>
@@ -131,7 +134,7 @@ export default function ContinueParams(props: Props) {
           dataFormat === "jwt" && (
             <React.Fragment>
               <Typography variant="subtitle1" color="text.secondary">
-                Send JWT as a query parameter.
+                Send JWT as a query parameter
               </Typography>
               <CodeAsJson title="JWT" value={rawJwt} error={rawJwtError} editable onChange={handleJwtChange} />
               <CodeTextField autoFocus id="dataParamKey" label="Token Parameter Name" variant="outlined" fullWidth value={tokenParamKey} onChange={handleParamKeyChange} />
@@ -145,7 +148,7 @@ export default function ContinueParams(props: Props) {
           dataFormat === "form" && (
             <React.Fragment>
               <Typography variant="subtitle1" color="text.secondary">
-                Post data as Form Data
+                POST data by submitting a form
               </Typography>
               <CodeTextField
                 fullWidth
