@@ -7,7 +7,9 @@ import { styled } from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
 import Grid from '@mui/material/Unstable_Grid2';
 import AppBar from '@mui/material/AppBar';
+import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
+import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Fab from '@mui/material/Fab';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
@@ -16,7 +18,8 @@ import ContinueParams from './comoponents/ContinueParams';
 import { decodeToken } from "react-jwt"
 import { KJUR } from "jsrsasign"
 import ScrollTop from './comoponents/ScrollTop';
-import ProfileParams from './comoponents/ProfileParams';
+import AuthorizeParams from './comoponents/AuthorizeParams';
+import AuthorizeResult from './comoponents/AuthorizeResult';
 
 const Item = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(1),
@@ -45,6 +48,15 @@ interface Jwt extends JwtStandardClaims {
 
 export type SendDataFormat = 'none' | 'jwt' | 'form'
 
+export enum Page {
+  Main = 0,
+  Authorize = 1
+}
+
+export interface AppState {
+  currentPage: Page
+}
+
 export interface RedirectState {
   tokenKey: string
   tokenSecret: string
@@ -70,11 +82,36 @@ export interface ProfileState {
   redirectUri: string
 }
 
-function App() {
+export interface AuthorizeState {
+  domain: string
+  clientId: string
+  redirect_uri: string
+  scope: string
+  audience: string
+  authorizeResult: object
+  error?: Error
+}
 
-  const searchParams = new URLSearchParams(window.location.search);
+export interface AppProps {
+  search: string
+  inAuth0Provider: boolean
+  initialPage: Page
+}
+
+const parseAuthorizeState = (item: string | null) => {
+  return item ? JSON.parse(item) as AuthorizeState : null
+}
+
+export default function App(props: AppProps) {
+
+  const { search, inAuth0Provider } = props
+
+  sessionStorage.removeItem("authorizingState")
+
+  const searchParams = new URLSearchParams(search);
   const state = searchParams.get("state")
   const queryParams = Array.from(searchParams.keys()).filter(key => key !== "state")
+  const preFilledAuthorizeState = parseAuthorizeState(localStorage.getItem("authorizeState"))
 
   const getTokenPartValue = (tokenKey: string) => {
     let value: string | null = null
@@ -151,6 +188,10 @@ function App() {
     return value
   }
 
+  const [appState, setAppState] = React.useState<AppState>({
+    currentPage: props.initialPage 
+  })
+
   const initialTokenKey = queryParams.length > 0 ? queryParams[0] : ""
   const [redirectState, setRedirectState] = React.useState<RedirectState>({
     tokenKey: initialTokenKey,
@@ -174,10 +215,14 @@ FAMILY_NAME=Smith`,
     continueUrl: ""
   })
 
-  const [profileState, setProfileState] = React.useState<ProfileState>({
-    clientId: "",
-    redirectUri: window.location.origin,
-    domain: ""
+  const [authorizeState, setAuthorizeState] = React.useState<AuthorizeState>({
+    domain: "",
+    clientId: preFilledAuthorizeState?.clientId || "",
+    scope: preFilledAuthorizeState?.scope || "openid profile",
+    redirect_uri: preFilledAuthorizeState?.redirect_uri || window.location.origin,
+    audience: preFilledAuthorizeState?.audience || "",
+    authorizeResult: {},
+    error: undefined
   })
 
   const handleRedirectInputUpdated = (tokenKey: string, tokenSecret: string) => {
@@ -219,58 +264,115 @@ FAMILY_NAME=Smith`,
     })
   }
 
-  const handleProfileInputUpdated = (clientId: string) => {
-
+  const handleAuthorizeInputUpdated = (clientId: string, redirect_uri: string, scope: string, audience: string, authorizeResult: object, error: any) => {
     const domain = redirectState.token && redirectState.token.iss ? redirectState.token.iss : "INVALID_ISS_IN_TOKEN"
-
-    setProfileState({
+    setAuthorizeState({
+      ...authorizeState,
+      domain,
       clientId,
-      redirectUri: profileState.redirectUri,
-      domain
+      redirect_uri,
+      scope,
+      audience,
+      authorizeResult,
+      error
     })
+  }
+
+  const handleAuthorizeResultUpdated = (authorizeResult: object, error: any) => {
+    handleAuthorizeInputUpdated(
+      authorizeState.clientId,
+      authorizeState.redirect_uri,
+      authorizeState.scope,
+      authorizeState.audience,
+      authorizeResult,
+      error
+    )
   }
 
   useEffect(() => {
     handleContinueInputUpdated(continueState.dataFormat, continueState.rawJwt, continueState.rawData, continueState.signingKey, continueState.tokenParamKey)
-    handleProfileInputUpdated(profileState.clientId)
+    handleAuthorizeInputUpdated(
+      authorizeState.clientId,
+      authorizeState.redirect_uri,
+      authorizeState.scope,
+      authorizeState.audience,
+      {},
+      undefined
+    )
   }, [redirectState])
+
+  useEffect(() => {
+    localStorage.setItem("authorizeState", JSON.stringify(authorizeState))
+  }, [authorizeState])
 
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
       <AppBar>
         <Toolbar>
-          <Typography
-            variant="h6"
-            noWrap
-            sx={{
-              mr: 2,
-              fontWeight: 700,
-              color: 'inherit',
-              textDecoration: 'none',
-              flexGrow: 1
-            }}
+          <Button
+            sx={{ color: 'white' }}
+            onClick={() => setAppState({ ...appState, currentPage: Page.Main })}
           >
-            Auth0 Redirect Action Tester
-          </Typography>
+            <Typography
+              variant="h6"
+              noWrap
+              sx={{
+                mr: 2,
+                fontWeight: 700,
+                color: 'inherit',
+                textDecoration: 'none',
+              }}
+            >
+              Auth0 Redirect Action Tester
+            </Typography>
+          </Button>
+          <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
+            <Button
+              sx={{ my: 2, color: 'white', display: 'block' }}
+              onClick={() => setAppState({ ...appState, currentPage: Page.Authorize })}
+            >
+              Authorize
+            </Button>
+          </Box>
         </Toolbar>
       </AppBar>
       <Toolbar id="back-to-top-anchor" />
       <Container maxWidth="xl">
         <Grid container spacing={2} marginTop={6}>
-          <Grid xs={12} lg={6} xl={6}>
-            <Item>
-              <RedirectParams state={state} queryParams={queryParams} onInputUpdated={handleRedirectInputUpdated} {...redirectState} ></RedirectParams>
-            </Item>
-            {/* <Item>
-              <ProfileParams onInputUpdated={handleProfileInputUpdated} {...profileState} />
-            </Item> */}
-          </Grid>
-          <Grid xs={12} lg={6} xl={6}>
-            <Item>
-              <ContinueParams onInputUpdated={handleContinueInputUpdated} {...continueState}></ContinueParams>
-            </Item>
-          </Grid>
+          {
+            appState.currentPage === Page.Main &&
+            (<>
+              <Grid xs={12} lg={6} xl={6}>
+                <Item>
+                  <RedirectParams state={state} queryParams={queryParams} onInputUpdated={handleRedirectInputUpdated} {...redirectState} ></RedirectParams>
+                </Item>
+              </Grid>
+              <Grid xs={12} lg={6} xl={6}>
+                <Item>
+                  <ContinueParams onInputUpdated={handleContinueInputUpdated} {...continueState}></ContinueParams>
+                </Item>
+              </Grid>
+            </>)
+          }
+          {
+            appState.currentPage === Page.Authorize &&
+            (<>
+              <Grid xs={12} lg={6} xl={6}>
+                <Item>
+                  <AuthorizeParams onInputUpdated={handleAuthorizeInputUpdated} {...authorizeState} />
+                </Item>
+              </Grid>
+              <Grid xs={12} lg={6} xl={6}>
+                <Item>
+                  {
+                    inAuth0Provider &&
+                    <AuthorizeResult onInputUpdated={handleAuthorizeResultUpdated} {...authorizeState} />
+                  }
+                </Item>
+              </Grid>
+            </>)
+          }
         </Grid>
       </Container>
       <ScrollTop>
@@ -282,4 +384,3 @@ FAMILY_NAME=Smith`,
   );
 }
 
-export default App;
