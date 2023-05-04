@@ -1,5 +1,5 @@
 {
-  "name": "auth0-redirect-action-debugger2",
+  "name": "auth0-redirect-action-tester",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -30,7 +30,7 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "PORT=5001 react-scripts start",
+    "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
