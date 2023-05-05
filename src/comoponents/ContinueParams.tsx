@@ -2,18 +2,19 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
-import TextField from '@mui/material/TextField';
 import Code from './Code';
 import CodeAsJson from './CodeAsJson';
 import React from 'react';
-import { ContinueState, SendDataFormat } from '../App';
+import { ContinueDataSubmissionMethod, ReducerAction, ReducerActionTypes, ReducerState } from '../reducer';
 
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import CodeTextField from './CodeTextField';
+import Alert from '@mui/material/Alert';
 
-interface Props extends ContinueState {
-  onInputUpdated: (dataFormat: SendDataFormat, rawJwt: string, rawData: string, tokenKey: string, tokenSecret: string) => void
+interface Props {
+  reducerState: ReducerState
+  dispatch: React.Dispatch<ReducerAction>
 }
 
 const createHiddenFieldsFromRawData = (rawData: string) => {
@@ -31,60 +32,18 @@ const createHiddenFieldsFromRawData = (rawData: string) => {
 }
 
 export default function ContinueParams(props: Props) {
-  const { dataFormat, rawJwt, rawJwtError, rawData, rawDataError, signingKey, tokenParamKey, continueUrl, onInputUpdated } = props
+  const { reducerState, dispatch } = props
 
-  const handleDataFormatChange = (
-    event: React.MouseEvent<HTMLElement>,
-    value: SendDataFormat
-  ) => {
-    onInputUpdated(
-      value,
-      rawJwt,
-      rawData,
-      signingKey,
-      tokenParamKey
-    )
-  }
-
-  const handleJwtChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onInputUpdated(
-      dataFormat,
-      event.target.value,
-      rawData,
-      signingKey,
-      tokenParamKey
-    )
-  };
-
-  const handleSigningKeyChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onInputUpdated(
-      dataFormat,
-      rawJwt,
-      rawData,
-      event.target.value,
-      tokenParamKey
-    )
-  };
-
-  const handleParamKeyChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onInputUpdated(
-      dataFormat,
-      rawJwt,
-      rawData,
-      signingKey,
-      event.target.value
-    )
-  };
-
-  const handleFormDataChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onInputUpdated(
-      dataFormat,
-      rawJwt,
-      event.target.value,
-      signingKey,
-      tokenParamKey
-    )
-  }
+  const {
+    continueDataSubmissionMethod,
+    continueJsonDataStr,
+    continueJsonDataValid,
+    continueJsonSessionTokenParamSelected,
+    continueJsonSigningSecret,
+    continueFormData,
+    continueFormDataValid,
+    continueUrl
+  } = reducerState
 
   const handleContinueClick = () => {
     window.location.href = continueUrl
@@ -97,75 +56,86 @@ export default function ContinueParams(props: Props) {
           Continue Parameters
         </Typography>
         <ToggleButtonGroup
-          value={dataFormat}
+          value={continueDataSubmissionMethod}
           fullWidth
           exclusive
-          onChange={handleDataFormatChange}
+          onChange={(_, value) => dispatch({
+            type: ReducerActionTypes.UPDATE_CONTINUE_DATA_SUBMIT_METHOD,
+            payload: { continueDataSubmissionMethod: value }
+          })}
           aria-label="text alignment"
         >
-          <ToggleButton value="none">
+          <ToggleButton value="NONE">
             <Typography variant="button" color="text.secondary">
               No Data
             </Typography>
           </ToggleButton>
-          <ToggleButton value="jwt">
+          <ToggleButton value="JWT">
             <Typography variant="button" color="text.secondary">
               JWT
             </Typography>
           </ToggleButton>
-          <ToggleButton value="form">
+          <ToggleButton value="FORM">
             <Typography variant="button" color="text.secondary">
               Form Data
             </Typography>
           </ToggleButton>
         </ToggleButtonGroup>
         {
-          dataFormat === "none" && (
+          continueDataSubmissionMethod === ContinueDataSubmissionMethod.NONE && (
             <React.Fragment>
-              <Typography variant="subtitle1" color="text.secondary">
-                Do not send any data
-              </Typography>
-              <Code title="Continue URL" value={!rawJwtError ? continueUrl : "Invalid Parameters"} />
+              <Alert severity="info">No data is sent</Alert>
+              <Code title="Continue URL" value={continueUrl} />
               <Button variant="contained" fullWidth onClick={handleContinueClick}>Continue</Button>
             </React.Fragment>
           )
         }
         {
-          dataFormat === "jwt" && (
+          continueDataSubmissionMethod === ContinueDataSubmissionMethod.JWT && (
             <React.Fragment>
-              <Typography variant="subtitle1" color="text.secondary">
-                Send JWT as a query parameter
-              </Typography>
-              <CodeAsJson title="JWT" value={rawJwt} error={rawJwtError} editable onChange={handleJwtChange} />
-              <CodeTextField autoFocus id="dataParamKey" label="Token Parameter Name" variant="outlined" fullWidth value={tokenParamKey} onChange={handleParamKeyChange} />
-              <CodeTextField id="dataSigningKey" label="Secret" variant="outlined" fullWidth value={signingKey} onChange={handleSigningKeyChange} />
-              <Code title="Continue URL" value={!rawJwtError ? continueUrl : "Invalid Parameters"} />
+              <Alert severity="info">Send data as a JSON Web Token Data via a HTTP GET request</Alert>
+              <CodeAsJson title="JSON Data" value={continueJsonDataStr} error={!continueJsonDataValid} editable onChange={(e) => dispatch({
+                type: ReducerActionTypes.UPDATE_CONTINUE_JSON_DATA,
+                payload: { continueJsonDataStr: e.target.value }
+              })} />
+              <CodeTextField autoFocus id="dataParamKey" label="Token Parameter Name" variant="outlined" fullWidth
+                value={continueJsonSessionTokenParamSelected} onChange={(e) => dispatch({
+                  type: ReducerActionTypes.UPDATE_CONTINUE_JSON_SESSION_TOKEN_KEY,
+                  payload: { continueJsonSessionTokenParamSelected: e.target.value }
+                })} />
+              <CodeTextField id="dataSigningKey" label="Secret" variant="outlined" fullWidth
+                value={continueJsonSigningSecret} onChange={(e) => dispatch({
+                  type: ReducerActionTypes.UPDATE_CONTINUE_JSON_SIGNING_SECRET,
+                  payload: { continueJsonSigningSecret: e.target.value }
+                })} />
+              <Code title="Continue URL" value={continueJsonDataValid ? continueUrl : "Invalid Parameters"} />
               <Button variant="contained" fullWidth onClick={handleContinueClick}>Continue</Button>
             </React.Fragment>
           )
         }
         {
-          dataFormat === "form" && (
+          continueDataSubmissionMethod === ContinueDataSubmissionMethod.FORM && (
             <React.Fragment>
-              <Typography variant="subtitle1" color="text.secondary">
-                POST data by submitting a form
-              </Typography>
+              <Alert severity="info">Send data as a regular form submission via a HTTP POST request</Alert>
               <CodeTextField
                 fullWidth
                 id="data"
                 label="Form Data"
                 name="data2"
                 multiline
-                onChange={handleFormDataChange}
+                onChange={(e) => dispatch({
+                  type: ReducerActionTypes.UPDATE_CONTINUE_FORM_DATA,
+                  payload: { continueFormData: e.target.value }
+                })}
                 maxRows={10}
-                value={rawData}
-                error={rawDataError}
-                helperText={rawDataError ? "Invalid Form Data" : undefined}
+                value={continueFormData}
+                error={!continueFormDataValid}
+                helperText={!continueFormDataValid ? "Invalid Form Data" : undefined}
               />
               <Code title="Continue URL" value={continueUrl} />
               <Box component="form" action={continueUrl} method="POST" noValidate>
                 {
-                  createHiddenFieldsFromRawData(rawData)
+                  createHiddenFieldsFromRawData(continueFormData)
                 }
                 <Button type="submit" variant="contained" fullWidth>Continue</Button>
               </Box>
